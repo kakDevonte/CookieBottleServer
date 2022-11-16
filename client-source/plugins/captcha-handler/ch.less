@@ -1,0 +1,113 @@
+.reCaptcha{
+  @width: 240px;
+  @scale: @width / 240;
+
+  display: flex;
+  width: @width;
+  height: round(@width / 3.75, 1);
+  background-size: contain;
+  font-family: "IrisWeb";
+  color: black;
+  line-height: 100%;
+  opacity: 0.5;
+
+  > .content{
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    height: 100%;
+    border: solid 1px #d2d2d2;
+    border-radius: round(3px * @scale, 1);
+    padding-top: round(20.5px * @scale, 1);
+    //background-color: #f4f4f4;
+    background-color: #f9f9f9;
+
+    > .box{
+      margin-left: round(12px * @scale, 1);
+      margin-right: round(10px * @scale, 1);
+      width: round(21px * @scale, 1);
+      height: round(21px * @scale, 1);
+      border: solid 2px #bec2c7;
+      background-color: #f9f9f9;
+      border-radius: round(3px * @scale, 1);
+    }
+
+    >.animate{
+      width: round(33px * @scale, 1);
+      height: round(33px * @scale, 1);
+      position: absolute;
+      background-image: none;
+      background-size: contain;
+      top: round(16px * @scale, 1);
+      left: round(7px * @scale, 1);
+
+      &.start{
+        background-image: url("/public/images/animate-start.gif");
+      }
+
+      &.cycle{
+        background-image: url("/public/images/animate-cycle.gif");
+      }
+
+      &.end{
+        background-image: url("/public/images/animate-end.gif");
+      }
+    }
+
+    > .text{
+      cursor: default;
+      height: round(21px * @scale, 1);
+      font-size: round(17px * @scale, 1);
+      padding-top: round(3.5px * @scale, 1);
+      width: round(140px * @scale, 1);
+    }
+
+    > .logo{
+      position: relative;
+      background-size: contain;
+      background-image: url("/public/images/captcha-logo.png");
+      width: round(42px * @scale, 1);
+      height: round(41px * @scale, 1);
+      top: round(-13px * @scale, 1);
+    }
+
+    > .info,
+    >.terms{
+      position: absolute;
+      font-size: round(10px * @scale, 1);
+      > a{
+        text-decoration: none;
+        color: #9c9a9b;
+      }
+    }
+
+    > .info{
+      left: round(25px * @scale, 1);
+      top: round(50px * @scale, 1);
+    }
+    > .terms{
+      left: round(123px * @scale, 1);
+      top: round(50px* @scale, 1);
+    }
+  }
+
+  &.error{
+    > .content{
+      border: solid 1px #ff0000;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    }
+  }
+
+  &.enabled{
+    opacity: 1;
+
+    .box{
+      cursor: pointer;
+    }
+    .content:hover > .box{
+      border: solid 2px #868a8f;
+    }
+  }
+}

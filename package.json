@@ -1,0 +1,50 @@
+{
+  "name": "cookie_server",
+  "version": "1.0.0",
+  "main": "app.js",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "body-parser": "1.19.0",
+    "canvas": "^2.6.1",
+    "connect-mongo": "^3.2.0",
+    "cookie-parser": "^1.4.4",
+    "cron": "^1.8.2",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "express-handlebars": "^3.1.0",
+    "express-session": "^1.17.0",
+    "handlebars": "4.5.0",
+    "mongodb": "3.5.3",
+    "mongoose": "5.9.2",
+    "mongoose-auto-increment": "^5.0.1",
+    "petrovich": "^0.2.1",
+    "slimbot": "^5.0.0",
+    "socket.io": "^2.3.0"
+  },
+  "devDependencies": {
+    "chokidar": "^3.3.1",
+    "concurrently": "^5.2.0",
+    "css-loader": "^4.1.1",
+    "eslint": "^6.8.0",
+    "extract-loader": "^5.1.0",
+    "file-loader": "^6.0.0",
+    "html-webpack-plugin": "^4.3.0",
+    "less": "^3.11.1",
+    "less-loader": "^6.2.0",
+    "mini-css-extract-plugin": "^0.9.0",
+    "nodemon": "^2.0.4",
+    "raw-loader": "^4.0.1",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "test-start": "node app.js test-server",
+    "server": "nodemon app.js",
+    "less": "node less-compiler.js",
+    "compress": "node compressor.js",
+    "webpack": "webpack --mode production",
+    "webpack-watch": "webpack --watch",
+    "dev": "concurrently \"npm run webpack-watch\" \"npm run less\" \"npm run server\""
+  }
+}

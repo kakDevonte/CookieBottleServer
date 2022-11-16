@@ -1,0 +1,41 @@
+body.no-scroll{
+  overflow-y: hidden !important;
+  padding-right: 17px !important;
+}
+
+#shadow-layer{
+  display: none;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  position: fixed;
+  cursor: pointer;
+  z-index: 5;
+
+  &.opened{
+    display: block;
+  }
+
+  &[data-controlled="false"]{
+    cursor: default;
+  }
+}
+
+div.popup-window{
+  display: none;
+  position: fixed;
+  background-color: #f4f4f4;
+  z-index: 10;
+  box-shadow: 0 0 20px 20px rgba(0,0,0,0.4);
+
+  &.center-screen{
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  &.opened{
+    display: block;
+  }
+}

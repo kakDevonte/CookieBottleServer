@@ -1,0 +1,15 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+*.lock
+
+package-lock.json
+
+.idea
+/node_modules
+.env
+
+/public/content
+
+/bottle

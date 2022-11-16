@@ -1,0 +1,9 @@
+{
+  "verbose": false,
+  "ignore": [
+      "client-source/*",
+      "node_modules/*",
+      "public/*"
+  ],
+  "watch": []
+}

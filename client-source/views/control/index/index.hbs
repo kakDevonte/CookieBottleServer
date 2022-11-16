@@ -1,0 +1,86 @@
+{{#iff tablesList '!=' null}}
+  <div>
+    <div>Подключений: {{countConnects}} <a href="/control/?section=sockets">[список]</a></div>
+    <div>Игроков: {{countUsers}} / {{countPlayers}}</div>
+    <div>Столов: {{countTables}}</div>
+    <div>Людей на столах: {{countUsersOnTables}}</div>
+
+    <br/>
+    <br/>
+
+    <table id="table-list">
+      <thead>
+      <tr>
+        <td>ID</td>
+        <td>Раунд</td>
+        <td>Игроки</td>
+        <td>Игра</td>
+        <td colspan="2">Опции</td>
+      </tr>
+      </thead>
+      <tbody>
+      {{#each tablesList}}
+        <tr>
+          <td>{{id}}</td>
+          <td>{{round}}</td>
+          <td>[ {{players.[0]}} / {{players.[1]}} ]</td>
+          <td>{{state}}</td>
+          <td><input type="button" onclick="location.href='/control/?section=state-info&tid={{id}}';" value="State-инфо" /></td>
+          <td><input type="button" class="reload-button" onclick="location.href='/control/?section=reload-table&tid={{id}}';" value="Перезагрузка" /></td>
+        </tr>
+      {{/each}}
+      </tbody>
+    </table>
+  </div>
+{{/iff}}
+
+{{#iff sockets '!=' null}}
+  <div>
+    <a href="/control/">Назад</a>
+    <br/>
+    <br/>
+    <table id="socket-list">
+      <thead>
+      <tr>
+        <td>ID</td>
+        <td>Подлючен</td>
+        <td>Комнаты</td>
+        <td>Пользователь</td>
+        <td>Соединение</td>
+      </tr>
+      </thead>
+      <tbody>
+      {{#each sockets}}
+        <tr>
+          <td>{{id}}</td>
+          <td>{{#if connected}}√{{else}}X{{/if}}</td>
+          <td>{{rooms}}</td>
+          <td>
+            {{#if user}}
+              {{user.previous}} > {{user.current}}, {{getNormalDate user.updated true}}
+            {{/if}}
+          </td>
+          <td>{{connectInfo}}</td>
+        </tr>
+      {{/each}}
+      </tbody>
+    </table>
+  </div>
+{{/iff}}
+
+{{#if reloadResult}}
+  <a href="/control/">[Назад]</a>
+  <div>{{reloadResult}}</div>
+{{/if}}
+
+{{#if states}}
+  <a href="/control/">[Назад]</a>
+  <div>{{{states}}}</div>
+{{/if}}
+
+{{#if user}}
+  <br>
+  <form action="/" method="POST">
+    <input type="submit" name="userExit" value="Выйти" />
+  </form>
+{{/if}}

@@ -1,0 +1,85 @@
+.custom-select{
+  display: flex;
+  position: relative;
+  z-index: 3;
+  width: 100%;
+
+  .select-input{
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer !important;
+    width: 100%;
+
+    i{
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 30px;
+      height: 100%;
+      font-size: 12px;
+
+      &:before{content: "\f078";}
+    }
+  }
+
+  .layer-closing{
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: -1;
+    background-color: transparent;
+  }
+
+  .select-items{
+    display: none;
+    position: absolute;
+    flex-flow: column nowrap;
+    list-style: none;
+    background-color: white;
+    border: solid 1px black;
+    width: 100%;
+    left: 0;
+    right: 0;
+    color: black;
+
+    .item{
+      display: flex;
+      flex-flow: row wrap;
+      cursor: pointer;
+      padding: 5px 20px;
+
+      &:hover{
+        background-color: #eeeeee;
+      }
+
+      &.active{}
+    }
+
+    .separator{
+      width: 80%;
+      margin: 2px 10%;
+      height: 3px;
+      background-color: #e6e5e5;
+      border-bottom: 1px solid #fdfdfd;
+
+      &:nth-last-child(1){
+        display: none;
+      }
+    }
+  }
+
+  &.opened {
+    .select-input{
+      i:before{content: "\f077";}
+    }
+    .layer-closing{
+      display: block;
+    }
+    .select-items{
+      display: flex;
+    }
+  }
+}
