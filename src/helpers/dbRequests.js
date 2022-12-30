@@ -158,11 +158,12 @@ class dbRequests {
         my: myRatingInfo
       };
 
-      let rating, info, count, i, n, item;
+      let rating, info, count, i, p, n, item;
       let
         limit = 20,
         indexes = {},
-        searchInfo = {player: {$in: []}};
+        searchInfo = {player: {$in: []}},
+        searchPlayer = {id: {$in: []}};
 
       rating = await Model
         .find(search, {_id: 0, __v: 0})
@@ -181,6 +182,7 @@ class dbRequests {
         result.items.push(item);
 
         searchInfo.player.$in.push(item.player);
+        searchPlayer.id.$in.push(item.player);
         indexes[item.player] = i;
       }
 
@@ -204,14 +206,19 @@ class dbRequests {
       }
 
       info = await Info.find(searchInfo).lean();
+      const players = await Player.find(searchPlayer).lean();
+
       if(!(info instanceof Array)) return error(info);
 
       count = info.length;
       while(count--) {
         i = info[count];
+        p = players[count];
         n = indexes[i.player];
 
         result.items[n].id = i.uid;
+        result.items[n].kissCounter = p.kisses;
+        result.items[n].giftsCounter = p.gifts.receive;
         result.items[n].platform = i.platform;
         result.items[n].name = i.name;
         result.items[n].fullName = i.fullName;

@@ -176,7 +176,7 @@ async function main() {
   const routes = [
     require('./server/routes/index.js'),
     require('./server/routes/login.js'),
-    //require('./server/routes/registration.js'),
+    require('./server/routes/registration.js'),
 
     require('./server/routes/control/index.js'),
     require('./server/routes/control/setups.js')

@@ -20,6 +20,7 @@ const limitTablesHistory = 2;
         platform: string
      }}
  */
+
 class User {
   constructor(vkUserData) {
     this._incorrect = User._validate(vkUserData);
@@ -118,6 +119,8 @@ class User {
       gifted: this._gifted,
       seat: this._seat,
       type: this._type,
+      kissCounter:  this._kissCounter,
+      giftsCounter: this._giftsCounter.receive,
       template: this._template
     }
   }

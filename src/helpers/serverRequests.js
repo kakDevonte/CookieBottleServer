@@ -114,7 +114,7 @@ class ServerRequests {
     if(/random/.test(uid)) {
       return {
         inventory: [],
-        cookies: 555,
+        cookies: 255,
       };
     }
 
