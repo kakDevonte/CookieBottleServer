@@ -20,6 +20,10 @@ const player = new Schema({
     type: Number,
     default: 0
   },
+  cookies: {
+    type: Number,
+    default: 0
+  },
   enters: {
     count: {
       type: Number,
