@@ -405,6 +405,8 @@ class User {
   async checkUpdateCookieCounter() {
     const data = await requests.getUserData(this._id);
 
+    console.log("CHECK COOKIE =", data);
+
     if(!data) return false;
     if(this._cookieCounter === Number(data.cookie)) return false;
 
@@ -414,27 +416,31 @@ class User {
   }
 
   async loadFromDB(guest) {
-    const data = await requests.getUserData(this._id);
+   // const data = await requests.getUserData(this._id);
+    //console.log("CHECK loadFromDB =", data);
     const player = await db.userEnter(this.infoDB, guest);
 
-    if(data && player) {
+   // console.log("CHECK PLAYER loadFromDB =", player);
+
+
+    if( player) { //data &&
       let inventory = new Collection(), gift;
 
-      data.inventory.forEach( (item) => {
-        const
-          id  = item.id  + '',
-          gid = item.relation_id + '';
+      // data.inventory.forEach( (item) => {
+      //   const
+      //     id  = item.id  + '',
+      //     gid = item.relation_id + '';
+      //
+      //   gift = inventory.get(id);
+      //   if(!gift) gift = {id, count: 0, gids: []};
+      //
+      //   gift.gids.push(gid);
+      //   gift.count++;
+      //
+      //   inventory.set(id, gift);
+      // });
 
-        gift = inventory.get(id);
-        if(!gift) gift = {id, count: 0, gids: []};
-
-        gift.gids.push(gid);
-        gift.count++;
-
-        inventory.set(id, gift);
-      });
-
-      this._cookieCounter = data.cookies;
+      this._cookieCounter = player.cookies;
       this._inventory = inventory;
       this._enterCounter = player.enters.count;
       this._giftsCounter = player.gifts;

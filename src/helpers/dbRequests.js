@@ -99,6 +99,24 @@ class dbRequests {
   }
 
   /**
+   * Записывает печеньки
+   * @param info
+   * @return {Promise<void>}
+   */
+  static async userBuyCookie(info) {
+    const cheaters = {
+      //'vk180312929': true
+    };
+
+    const result = await Player.findOneAndUpdate(
+      {uid: info.id},
+      {cookies: info.count})
+
+    if(!result) global.log.error('Не смог добавить печеньки в базу: id ' + info.id, info);
+    if(cheaters[info.id]) return;
+  }
+
+  /**
    * Записывает поцелуи
    * @param info
    * @return {Promise<void>}

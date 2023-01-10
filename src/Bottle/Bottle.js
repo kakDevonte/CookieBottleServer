@@ -163,6 +163,13 @@ class Bottle {
 
       /////////////////////////////////////////////////
 
+      socket.on('buy-cookie', (response) => {
+        console.log("BUY COOKIE = ", response);
+        this._buyCookies(response);
+      });
+      //addCookies
+      /////////////////////////////////////////////////
+
 
       socket.on('request-ratings', (data) => {
         this._processingRatingRequest(sid, data);
@@ -442,6 +449,27 @@ class Bottle {
     }
   }
 
+  /**
+   * Покупка печенек игроком
+   * @param {{uid: string, count: number}} data
+   * @private
+   */
+  _buyCookies(data) {
+    try {
+      let {uid, count} = data;
+      let user = this.user(uid);
+      if (!user) return;
+
+      console.log(user);
+      user.addCookies(count);
+      this._emitUserData(uid);
+
+      const result = db.userBuyCookie({id: uid, count: user.getPersonalInfo().cookieCounter })
+
+    } catch (e) {
+      global.log.error('[Бутылка] Обработка покупки печенек', e);
+    }
+  }
 
   /**
    * Обработка данных на отправку подарка игроку
@@ -468,6 +496,7 @@ class Bottle {
 
       if(buy) {
         result = userFrom.spendCookies(gift.cost) ? {id: gift.id, gid: null} : null;
+        db.userBuyCookie({id: from, count: userFrom.getPersonalInfo().cookieCounter })
       } else {
         result = userFrom.spendGiftFromInventory(gift.id);
       }

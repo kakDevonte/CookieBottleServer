@@ -111,6 +111,8 @@ class ServerRequests {
    * @return {Promise<null|*>}
    */
   static getUserData(uid, platform = 'vk') {
+    console.log("UID = ", uid);
+
     if(/random/.test(uid)) {
       return {
         inventory: [],
@@ -123,6 +125,8 @@ class ServerRequests {
         url = $url[platform] + '/bottle/init',
         query = {user_id: uid, platform};
 
+      console.log("url = ", url);
+      console.log("query = ", query);
       request(url, 0);
 
       function request(url, attempt) {
