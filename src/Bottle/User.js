@@ -26,21 +26,27 @@ class User {
     this._incorrect = User._validate(vkUserData);
     this._init(vkUserData);
 
+    this._token = '';
     this._afk = 0;
     this._kissed = [];
     this._gifted = [];
     this._sockets = new Set();
     this._table = null;
     this._seat = null;
+    this._countMessage = 0;
+    this._lastTimeMessage = 0;
 
     this._type = 'human';
     this._template = null;
+    this._adult = false;
+    this._isDelete = false;
 
     this._giveGiftCount = 0;
     this._initKissses = 0;
+    this._initGiftCount = 0;
     this._enterCounter = 0;
     this._kissCounter = 0;
-    this._cookieCounter = 0;
+    this._cookieCounter = 1000;
     this._giftsCounter = {send: 0, receive: 0};
     this._rotatesCounter = {all: 0, manual: 0};
     this._inventory = new Collection();
@@ -128,6 +134,8 @@ class User {
   getPersonalInfo() {
     return {
       enterCounter: this._enterCounter,
+      adult: this._adult,
+      isDelete: this._isDelete,
       cookieCounter: this._cookieCounter,
       giftsCounter: this._giftsCounter,
       rotatesCounter: this._rotatesCounter,
@@ -139,6 +147,19 @@ class User {
 
   get inventory() {
     return this._inventory.take(0, this._inventory.size);
+  }
+
+  get token() {
+    return this._token;
+  }
+
+  get countMessage() {
+    return this._countMessage;
+  }
+
+
+  get offsetTimeMessage() {
+    return new Date().getTime() - this._lastTimeMessage;
   }
 
   getRatingInfo() {
@@ -165,24 +186,35 @@ class User {
   }
 
   get exitInfo() {
-    let id, sKisses, chance;
+    let id, sKisses, chance, sGifts;
 
     if(this._type === "human") {
       id = this._platform + this._id;
+      console.log(this.sessionKisses);
+      console.log(this.sessionGiveGifts);
+
+      console.log(this._giveGiftCount)
+      console.log(this._initGiftCount)
       sKisses = this.sessionKisses;
+      sGifts = this.sessionGiveGifts;
+
     } else {
       id = this._platform + this._template;
       chance = common.randomNumber(1, 100);
       sKisses = chance < 20 ? 1 : 0;
+      sGifts = chance < 20 ? 1 : 0;
       //sKisses = Math.round(this.sessionKisses / 30);
     }
+
+    this.setInitKisses();
+    this.setInitGiftCount();
 
     return {
       id: id,
       kisses: this._kissCounter,
       gifts: this._giftsCounter,
       rotates: this._rotatesCounter,
-      sessionGifts: this._giveGiftCount,
+      sessionGifts: sGifts,
       sessionKisses: sKisses,
       platform: this._platform
     }
@@ -192,11 +224,14 @@ class User {
   get gifted() { return this._gifted; }
   get kissCounter() { return this._kissCounter; }
   get sessionKisses() { return this._kissCounter - this._initKissses};
-  get sessionGiveGifts() { return this._giveGiftCount};
+  get sessionGiveGifts() { return this._giveGiftCount - this._initGiftCount};
   get incorrect() { return this._incorrect; }
   get enterCounter() { return this._enterCounter; }
+  get adult() { return this._adult; }
+  get isDelete() { return this._isDelete; }
   get platform() { return this._platform; }
 
+  set adult(value) { this._adult = value }
   /**
    * Возвращает список посещенных столов
    * @returns {[]|Array}
@@ -223,6 +258,7 @@ class User {
     if(this._stage.current === 'tutorial') return time - this._stage.updated > 1800000;
     return time - this._stage.updated > 300000;
   }
+
 
   resetAFK() {
     this._afk = 0;
@@ -298,6 +334,17 @@ class User {
     this._cookieCounter = this._cookieCounter + count;
   }
 
+  addMessage() {
+    this._countMessage = this._countMessage + 1;
+  }
+
+  setLastTimeMessage() {
+    this._lastTimeMessage = new Date().getTime();
+  }
+
+  clearMessage() {
+    this._countMessage = 0;
+  }
   spendCookies(count) {
     checkCookieCount(count, 'списание');
 
@@ -336,6 +383,7 @@ class User {
 
   receiveKiss(kiss) {
     this._kissCounter++;
+    // this._initKissses++;
     this._kissed.push(kiss);
   }
 
@@ -394,12 +442,28 @@ class User {
     this._gifted = [];
   }
 
+  setInitKisses() {
+    this._initKissses = this._kissCounter
+  }
+
+  setInitGiftCount() {
+    this._initGiftCount = this._giveGiftCount
+  }
+
   roundUp() {
     this._roundCounter++;
   }
 
   roundReset() {
     this._roundCounter = 0;
+  }
+
+  setToken(token) {
+    this._token = token;
+  }
+
+  checkToken(token) {
+    return token !== this._token;
   }
 
   async checkUpdateCookieCounter() {
@@ -441,6 +505,8 @@ class User {
       // });
 
       this._cookieCounter = player.cookies;
+      this._adult = player.adult;
+      this._isDelete = player.isDelete;
       this._inventory = inventory;
       this._enterCounter = player.enters.count;
       this._giftsCounter = player.gifts;
@@ -448,6 +514,9 @@ class User {
 
       this._kissCounter = player.kisses;
       this._initKissses = player.kisses;
+      this._initGiftCount = player.gifts.send;
+      this._giveGiftCount = player.gifts.send;
+      console.log('this._initGiftCount: ', this._initGiftCount)
 
       //this._messages = response.messages;
       //this._gifts = response.gifts;

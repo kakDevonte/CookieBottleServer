@@ -354,6 +354,7 @@ class Table {
 
     if(!merge) user.stageLobby();
 
+    user._rotateReceived = false;
     this._groups[user.getGender()].delete(uid);
     this._users.delete(uid);
     this._players.delete(uid);
@@ -549,6 +550,28 @@ class Table {
     });
 
     return result;
+  }
+
+  /**
+   * Возаращет есть ли пользователь за столом
+   * @return Boolean
+   */
+  isUserAtTable(id) {
+    let user;
+
+    if(this._seats.length === 0) return false;
+
+    this._seats.forEach((uid, index) => {
+      try {
+        user = this._userList.get(uid);
+        if(user) user = user.getInfo();
+        if (user && user.id == id) return true;
+      } catch(e) {
+        global.log.warn('[Бутылка] Не найден пользователь при сборе данных об игроках', uid);
+      }
+    });
+
+    return false;
   }
 
   /**

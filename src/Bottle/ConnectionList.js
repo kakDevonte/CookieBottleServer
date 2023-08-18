@@ -2,6 +2,7 @@ const
   Collection = require('../helpers/Collection'),
   Table = require('./Table'),
   User = require('./User');
+const common = require("../helpers/common");
 
 class ConnectionList {
   /**
@@ -110,6 +111,13 @@ class ConnectionList {
   }
 
   to(sid, event, message) {
+    // message = event === 'receive-rating-data' ? message :
+    switch (event) {
+      case 'receive-rating-data':
+        break;
+      default:
+        message = common.crypt(message);
+    }
     this._io.to(sid).emit(event, message);
   }
 
@@ -121,8 +129,7 @@ class ConnectionList {
   toUser(user, event, message) {
     if(user instanceof User) user = user.getId();
     if(!user) return;
-
-    this._io.to('user_' + user).emit(event, message);
+    this._io.to('user_' + user).emit(event, common.crypt(message));
   }
 
   /**
@@ -134,7 +141,7 @@ class ConnectionList {
     if(table instanceof Table) table = table.getId();
     if(!table) return;
 
-    this._io.to('table_' + table).emit(event, message);
+    this._io.to('table_' + table).emit(event, common.crypt(message));
   }
 
   /**

@@ -10,6 +10,8 @@ class Player {
     this._gender = null;
     this._autoKiss = false;
     this._autoTurn = false;
+    this._emittedKiss = false;
+    this._rotateReceived = false;
     this._active = current;
   }
 
@@ -41,8 +43,26 @@ class Player {
     this._active = active;
   }
 
+  set active(active) {
+    this._active = active;
+  }
+
+  set emittedKiss(flag) {
+    this._emittedKiss = flag;
+  }
+
+  set rotateReceived(flag) {
+    this._rotateReceived = flag;
+  }
+
+  get rotateReceived() {
+    return this._rotateReceived;
+  }
   get type(){
     return this._type;
+  }
+  get emittedKiss(){
+    return this._emittedKiss;
   }
   get uid(){
     return this._uid;
@@ -81,7 +101,9 @@ class Player {
       this._kiss,
       this._autoTurn,
       this._autoKiss,
-      this._active
+      this._active,
+      this._emittedKiss,
+      this._rotateReceived
     ];
   }
 
@@ -96,6 +118,8 @@ class Player {
     this._gender = null;
     this._autoKiss = false;
     this._autoTurn = false;
+    this._emittedKiss = false;
+    this._rotateReceived = false;
   }
 }
 

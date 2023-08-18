@@ -10,11 +10,17 @@ const
   TablesList = require('./TablesList'),
   GiftsList = require('./GiftsList'),
   TemplateBotList = require('../res/bots');
+const {Token} = require("../../server/models/token");
+const verifyLaunchParams = require("../../src/helpers/verifyLaunchParams");
+const qs = require("querystring");
+const jwt = require("jsonwebtoken");
 
 class Bottle {
   constructor(io) {
+
     this._io = io.of('/bottle/');
     this._bots = new TemplateBotList();
+    this._timerDeleteMessage = null;
 
     this._usersList = new UsersList(this);
     this._tablesList = new TablesList(this);
@@ -57,6 +63,50 @@ class Bottle {
     }
   }
 
+  async checkToken(data, socket,  db = false) {
+    const errors = [];
+
+    try {
+      // data = common.decrypt(data);
+      // console.log(data);
+      data = JSON.parse(common.decrypt(data)[0]);
+      console.log(data);
+    } catch (e) {
+      console.log(e);
+      errors.push("Неверные данные");
+    }
+    console.log(data);
+
+    if(!data.token)
+      errors.push("Нет токена");
+
+    if(!data.uid)
+      errors.push("Нет ID");
+
+    try {
+      if (data.token && db && !await Token.findOne({id: data.uid, token: data.token}))
+        errors.push("Не верный токен");
+    } catch (e) {
+      errors.push("Ошибка БД");
+    }
+
+    if(data.token && !db){
+      if(!this.user(data.uid))
+        errors.push("Не найден пользователь");
+
+      if(this.user(data.uid) && this.user(data.uid).checkToken(data.token)) //data.token //this.user(data.uid).checkToken(data.token)
+        errors.push("Не верный токен");
+    }
+
+    if (errors.length > 0) {
+      this._emitError(socket, errors);
+      this.closeApp(socket)
+      return false;
+    }
+
+    return data;
+  }
+
   /**
    * Зацикленный метод для отключения мертвых, ошибочных подлючений.
    * @private
@@ -92,25 +142,63 @@ class Bottle {
   }
 
   _bindSockets() {
-    this._io.on('connection', (socket) => {
+    this._io.on('connection', async (socket) => {
       const sid = socket.id;
+      const header = socket.handshake.query;
+      const errors = [];
+      const params = common.decrypt(header.params);
+      let search = params[0];
+      let userID = params[1];
+
+      if(!search || !userID)
+        errors.push('Не валидные данные входа')
+      const auth = verifyLaunchParams(search, process.env.SECRET_KEY);
+
+      if(!auth)
+        errors.push('Не валидная подпись')
+
+        const user = qs.parse(search);
+
+      if(!(new RegExp('vk_user_id=' + userID).test(search)))
+        errors.push('Не валидный ID')
+
+      if(errors.length > 0) {
+        this._emitError(socket, errors);
+        this.closeApp(socket);
+        return;
+      }
+      const jwtToken = jwt.sign({ id: userID }, process.env.SECRET_KEY);
+      const token = new Token({id: userID, token: jwtToken});
+      await token.save();
 
       this._connects.add(socket);
-      this._connects.to(sid, 'request-info');
+
+      this._connects.to(sid, 'request-info', { token: jwtToken });
 
       global.log.info(`[Бутылка] Сокет подключен: ${socket.id} |`, `Всего: ${this._connects.count()}`);
 
+        // socket.use(([event], next) => {
+        //     // socket.event = event;
+        //     console.log(event);
+        //     next();
+        // });
       /////////////////////////////////////////////////
-
+      ///'close-roulette'
       socket.on('close-roulette', () => {
         this.closeApp(socket);
       });
 
+
       /////////////////////////////////////////////////
 
-      socket.on('user-info', (guest) => {
-        guest.platform = 'vk';
-        this._receiveUserInfo(guest, socket);
+      socket.on('user-info', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        data.guest.platform = 'vk';
+        data.guest.id = data.uid;
+        this._receiveUserInfo(data.guest, data.token, socket);
       });
 
       /////////////////////////////////////////////////
@@ -125,53 +213,137 @@ class Bottle {
         this._inTutorial(socket.id);
       });
 
-      socket.on('in-lobby', (tid) => {
-        if(tid) return this._changeTable(tid, sid);
+      socket.on('in-lobby', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+
+        if(data.tid) return this._changeTable(data.tid, sid);
 
         setTimeout(() => this._seatToTable(sid), 1250);
       });
 
       /////////////////////////////////////////////////
 
-      socket.on('in-table', (tid) => {
-        this._playerSeatToTable(sid, tid);
+      socket.on('in-table', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+
+        this._playerSeatToTable(sid, data.tid);
       });
 
       /////////////////////////////////////////////////
 
-      socket.on('player-rotated-roulette', (tid) => {
-        this.startRotateCookie(tid);
+      socket.on('player-rotated-roulette', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+
+        this.startRotateCookie(data);
       });
 
       /////////////////////////////////////////////////
 
-      socket.on('receive-kiss-result', (response) => {
+      socket.on('receive-kiss-result', async (response) => {
+        response = await this.checkToken(response, socket, true);
+
+        if(!response) return;
+
+
         this._processKissResponse(response);
       });
 
       /////////////////////////////////////////////////
 
-      socket.on('user-message', ({from, text, to}) => {
-        this._processReceiveUserMessage(from, text, to);
+      socket.on('user-message', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        this._processReceiveUserMessage(data.uid, data.text, data.to);
       });
 
       /////////////////////////////////////////////////
 
-      socket.on('send-gift', (response) => {
-        this._processingGiftSending(response);
+      socket.on('send-gift', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        console.log('send-gift: ', data)
+        this._processingGiftSending(data);
       });
 
       /////////////////////////////////////////////////
 
-      socket.on('buy-cookie', (response) => {
-        console.log("BUY COOKIE = ", response);
-        this._buyCookies(response);
+      socket.on('buy-cookie', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        this._buyCookies(data);
+      });
+
+      /////////////////////////////////////////////////
+
+      socket.on('delete-profile', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        this._deleteProfile(data, sid, socket);
+      });
+
+      /////////////////////////////////////////////////
+
+      socket.on('set-adult', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        await this._setAdult(data, socket);
+      });
+      //addCookies
+      /////////////////////////////////////////////////
+
+      socket.on('send-report', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
+        this._sendReport(data, socket);
+      });
+      //addCookies
+      /////////////////////////////////////////////////
+
+       socket.on('get-user', async (data) => {
+         data = await this.checkToken(data, socket, true);
+
+         if(!data) return;
+
+         this._getUser(data, socket);
+      });
+
+       socket.on('get-rating-user', async (data) => {
+         data = await this.checkToken(data, socket, true);
+
+         if(!data) return;
+
+         this._getRatingUser(response, socket);
       });
       //addCookies
       /////////////////////////////////////////////////
 
 
-      socket.on('request-ratings', (data) => {
+      socket.on('request-ratings', async (data) => {
+        data = await this.checkToken(data, socket, true);
+
+        if(!data) return;
+
         this._processingRatingRequest(sid, data);
       });
 
@@ -199,13 +371,12 @@ class Bottle {
     } catch(e) {}
   }
 
-  async _receiveUserInfo(guest, socket) {
+  async _receiveUserInfo(guest, token, socket) {
     try {
       const
         sid = socket.id,
         uid = guest.id,
-        {exist, user, errors} = this._usersList.addUser(sid, guest);
-
+        {exist, user, errors} = this._usersList.addUser(sid, guest, token);
       if(user) {
         this._connects.applyUID(sid, uid);
         this._connects.joinRoom(user.getSockets(), 'user_' + uid);
@@ -216,9 +387,10 @@ class Bottle {
           this._connects.joinRoom(user.getSockets(), 'table_' + tid);
           this._connects.to(sid, 'put-table', {uid, tid});
         } else {
-          //user.enterCounter
+          //console.log(user);
+
           if( await user.loadFromDB(guest) ) {
-            this._connects.toUser(user, 'connect-success', user.enterCounter);
+            this._connects.toUser(user, 'connect-success', {enters: user.enterCounter, adult: user.adult, isDelete: user.isDelete });
           } else {
             this._emitError(socket,
               [
@@ -271,14 +443,20 @@ class Bottle {
   _changeTable(tid, sid) {
     try{
       const user = this._connects.getUser(sid);
+      if(!user.getTable()) return;
+
       const table = this.table(tid);
 
       this._connects.leaveRoom(user.getSockets(), 'table_' + tid);
       table.userExit(user);
+      const exitInfo = user.exitInfo;
+      console.log(exitInfo);//TODO менять данные при смене стола
+      db.userExit(exitInfo);
       this._emitCurrentStage(user);
 
       this.sendPlayers(tid);
       setTimeout(() => this._seatToTable(sid), 2000);
+      //this._seatToTable(sid);
     } catch(e) {
 
       global.log.warn('[Бутылка] Неудачная смена стола', tid, sid, e);
@@ -304,10 +482,17 @@ class Bottle {
       let user, uid;
 
       user = this._connects.getUser(sid);
-      if(!user) return;
+
+      if(!user)
+        return console.log("!user");
+      if(user.getStage().current === 'table')
+        return console.log("user.getStage().current === 'table'");
 
       uid = user.getId();
       user.stageLobby();
+
+      if(!user.adult)
+        return console.log("!user.adult");
 
       const
         table = this._tablesList.getFreeTable(user),
@@ -316,6 +501,7 @@ class Bottle {
       this.emitGameData(uid, table.game.data, 'user');
       //global.log.info('[Бутылка] Стол выбран', tid);
 
+      // this._tablesList.getTable().forEach(item => console.log(item._usersList))
       try {
         if(table.putUser(user)) {
           user.stageTable(tid);
@@ -387,11 +573,11 @@ class Bottle {
    * Зпускает вращение печеньки
    * @param tid
    */
-  startRotateCookie(tid){
-    const table = this.table(tid);
+  startRotateCookie(data){
+    const table = this.table(data.tid);
 
     if(table){
-      table.game.rotateRoulette(false);
+      table.game.rotateRoulette(false, data.uid);
       //console.log('Запуск вращение рулетки, стол:', tid);
     }
   }
@@ -405,6 +591,8 @@ class Bottle {
    */
   _processReceiveUserMessage(from, text, to){
     try {
+      if(text.length > 120) return;
+
       const user = this.user(from);
 
       if(!user) return;
@@ -414,7 +602,25 @@ class Bottle {
       const chat = table.chat;
 
       if(!chat) return;
+
+      if (typeof text !== 'string') {
+        return;
+      }
+
+      if(to) {
+        const seat = this.user(to).getSeat();
+        if(!table.getUserFromSeat(seat))
+        return global.log.error('[Бутылка] Обработка принятого сообщения пользователя', from, to);
+      }
+
+
+      if(user.offsetTimeMessage < 500) return;
+      //TODO доработать обработку отправки сообщений, динамический timeout
+      user.setLastTimeMessage();
       chat.receiveMessage(from, text, to);
+      user.addMessage();
+
+
     } catch(e) {
       global.log.error('[Бутылка] Обработка принятого сообщения пользователя', from, to, e);
     }
@@ -450,25 +656,130 @@ class Bottle {
   }
 
   /**
+   * Удаление профиля
+   * @param {{uid: string, count: number}} data
+   * @private
+   */
+  _deleteProfile(data, sid, socket) {
+    try {
+
+      (async () => {
+        let {uid, tid} = data;
+
+        let user = this.user(uid);
+        if (!user) return;
+
+        const userInTable = this._connects.getUser(sid);
+        const table = this.table(tid);
+
+        const result = db.deleteUser({id: uid});
+        const rating = db.resetRatingsById(user._platform + user._id);
+        this._connects.toUser(user, 'set-delete', {});
+        table.userExit(userInTable);
+        this.sendPlayers(tid);
+        this.closeApp(socket);
+        this._disconnect(socket);//set-delete
+
+      })();
+    } catch (e) {
+      global.log.error('[Бутылка] Обработка удаления пользователя', e);
+    }
+  }
+
+  /**
    * Покупка печенек игроком
    * @param {{uid: string, count: number}} data
    * @private
    */
   _buyCookies(data) {
     try {
+
       let {uid, count} = data;
       let user = this.user(uid);
       if (!user) return;
 
-      console.log(user);
       user.addCookies(count);
       this._emitUserData(uid);
-
-      const result = db.userBuyCookie({id: uid, count: user.getPersonalInfo().cookieCounter })
 
     } catch (e) {
       global.log.error('[Бутылка] Обработка покупки печенек', e);
     }
+  }
+
+  /**
+   * Игроку больше 18 лет
+   * @param {{uid: string, count: number}} data
+   * @private
+   */
+  async _setAdult(data, socket) {
+    try {
+        let { uid } = data;
+
+        let user = this.user(uid);
+        if (!user) return;
+
+        const result = await db.userSetAdult({ id: uid })
+      user.adult = true;
+      this._connects.toUser(user, 'adult-accepted', {});
+
+    } catch (e) {
+      global.log.error('[Бутылка] Обработка покупки печенек', e);
+    }
+  }
+
+  /**
+   * Игроку больше 18 лет
+   * @param {{uid: string, count: number}} data
+   * @private
+   */
+  _sendReport(data, socket) {
+    try {
+        const result = db.addReport(data);
+
+    } catch (e) {
+      global.log.error('[Бутылка] Обработка добавления репорта', e);
+    }
+  }
+
+  /**
+   * Получение игрока по id
+   * @param {{uid: string}} data
+   * @private
+   */
+
+  _getUser(data, socket) {
+      try {
+          let { from, to } = data;
+
+          const user = this.user(to);
+
+          this._connects.toUser(from, 'profile-data', {
+            fullName: user._fullName,
+            photo: user._photo,
+            kissCounter: user._kissCounter,
+            giveGiftCount: user._giftsCounter.receive,
+          })
+      } catch(e) {
+       // global.log.error('[Бутылка] Отправка данных о пользователе', e);
+      }
+  }
+
+  _getRatingUser(data, socket) {
+      try {
+          let { from, to } = data;
+
+          db.getUser(to).then(data => {
+            this._connects.toUser(from, 'profile-data', {
+              fullName: data.fullName,
+              photo: data.photo,
+              kissCounter: data.kissCounter,
+              giveGiftCount: data.giveGiftCount,
+            })
+          })
+
+      } catch(e) {
+       // global.log.error('[Бутылка] Отправка данных о пользователе', e);
+      }
   }
 
   /**
@@ -478,10 +789,10 @@ class Bottle {
    */
   _processingGiftSending(data){
     try {
-      let {tid, from, to, gid, buy, category} = data;
+      let {tid, uid, to, gid, buy, category} = data;
 
       if(typeof tid !== 'string') return;
-      if(typeof from !== 'string') return;
+      if(typeof uid !== 'string') return;
       if(typeof to !== 'string') return;
       if(typeof gid !== 'string') return;
       if(typeof buy !== 'boolean') return;
@@ -490,20 +801,20 @@ class Bottle {
       let table, userFrom, userTo, gift, result, item;
 
       table = this.table(tid); if(!table) return;
-      userFrom = this.user(from); if(!userFrom) return;
+      userFrom = this.user(uid); if(!userFrom) return;
       userTo = this.user(to); if(!userTo) return;
       gift = this.gift(gid); if(!gift) return;
 
       if(buy) {
         result = userFrom.spendCookies(gift.cost) ? {id: gift.id, gid: null} : null;
-        db.userBuyCookie({id: from, count: userFrom.getPersonalInfo().cookieCounter })
+        db.userBuyCookie({id: uid, count: userFrom.getPersonalInfo().cookieCounter })
       } else {
         result = userFrom.spendGiftFromInventory(gift.id);
       }
 
       if(result) {
         item = userTo.receiveGift(gift, userFrom);
-        this._emitUserData(from);
+        this._emitUserData(uid);
         this._emitReceivedGift(tid, to, item);
         table.chat.giftMessage(userFrom, userTo, gift);
 
@@ -553,7 +864,6 @@ class Bottle {
       const result = await db.getRating(data, player, info);
 
       if(!result) return error();
-
       this._connects.to(sid, 'receive-rating-data', result);
     }catch(e) {
       global.log.warn('[Бутылка] Не удалось получить рейтинг', e);
@@ -593,7 +903,7 @@ class Bottle {
     try {
       if(user) {
         if(user.getType() === 'human') {
-          this._connects.toUser(user.getId(), 'allow-start-rotate');
+          this._connects.toUser(user.getId(), 'allow-start-rotate', {});
           return true;
         } else {
           user.rotateRoulette();
@@ -716,7 +1026,7 @@ class Bottle {
    * Отправляет сокету данные о текущем состоянии игры
    * @param {string} id - socket.id или user.id или table.id
    * @param {object} data - Game Data
-   * @param {=string} type - (user, table)
+   * @param {string} type - (user, table)
    */
   emitGiftsData(id, data, type) {
     this._emitEvent('gifts-data', type, id, data);

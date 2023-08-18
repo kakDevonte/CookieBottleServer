@@ -10,11 +10,20 @@ const terminate = require('./src/helpers/terminate');
 const ioOptions = {
   pingInterval: process.env.SOCKET_INTERVAL ? Number(process.env.SOCKET_INTERVAL) : 25000,
   pingTimeout: process.env.SOCKET_TIMEOUT ? Number(process.env.SOCKET_TIMEOUT) : 5000,
+  cors: {
+    origin: "https://friday.bulochkin.site/",
+    methods: ["GET", "POST"],
+    transports: ['websocket'], //, 'polling'
+    credentials: true
+  },
+  allowEIO3: true
 };
 
 const ACCESS = {
   domains: {
     'http://localhost:10888': true,
+    'https://friday.bulochkin.site/': true,
+    'https://vk.com/': true,
   },
   tokens: { 'AekbLiKhLab': true }
 };
@@ -101,8 +110,14 @@ async function main() {
   app.use(cookieParser());
 
   app.use(function (req, res, next) {
+
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Set-Cookie, X-XSRF-TOKEN, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+
+    if(req.headers.host === 'server.bulochkin.site') {
+      console.log("HOST");
+      return next();
+    }
 
     // если домен есть в списке разрешенных и это не GET (у GET нет ориджин)
     if( ACCESS.domains[req.headers.origin] ) {
@@ -110,12 +125,14 @@ async function main() {
 
       if(req.method === 'OPTIONS')
         return res.status(200).send();
+      console.log("OPTIONS")
 
       return next();
     }
 
     // еслив это гет пускаем
     if(req.method === 'GET') {
+      console.log("GET")
       setCorsHeaders(req, res);
       return next();
     }
@@ -247,6 +264,8 @@ function sockets() {
 function createServer() {
   let server, protocol;
 
+  protocol = require('http');
+  server = protocol.createServer(app);
   if(process.platform === 'win32') {
     protocol = require('http');
     server = protocol.createServer(app);

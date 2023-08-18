@@ -18,6 +18,7 @@ class Game {
     this._activePlayer = new Player(true);
     this._targetPlayer = new Player(false);
     this._resultKiss = null;
+    this._kissesReseved = false;
     this._history = new Collection();
     this._historyLimit = global.setups.game.historyLimit;
 
@@ -190,7 +191,7 @@ class Game {
 
       // переходим к следующему действию, авто-вращение рулетки
       this._timeouts.set('autoRotate', setTimeout(
-        () => this.rotateRoulette(true),
+        () => this.rotateRoulette(true, this._activeUser._id),
         this._intervals.autoRotate
       ));
 
@@ -204,8 +205,17 @@ class Game {
    * Вращение рулетки запускается актвиным игроком по событию или принудительно игрой по таймауту.
    * @param {boolean} auto - true если автоматичский запуск игрой, иначе false
    */
-   rotateRoulette(auto) {
+   rotateRoulette(auto, uid) {
     try {
+      if(this._activeUser.rotateReceived) return;
+      // console.log("this._activeUser: ", this._activeUser);
+
+      // if(this._activeUser._type === 'human') {
+      //  if(this._activeUser._id !== uid) return;
+      // }
+
+      this._activeUser.rotateReceived = true;
+
       // подсчитваем вращение бутылки
       if(this._activeUser) this._activeUser.rotateUp(auto);
 
@@ -259,6 +269,7 @@ class Game {
     try{
       //console.log('Round', this._round);
 
+      this._activeUser.rotateReceived = false;
       this._roulette = false;
       // ставим цель, из временных данных, если не вышло, делаем рестарт игры
       if(!this.setTarget(this._temporaryTarget)) return this.nextRound('select-target, no set-target');
@@ -311,6 +322,7 @@ class Game {
       const current = data.active ? this._activePlayer : this._targetPlayer;
 
       //console.log(data);
+      if(this._kissesReseved) return;
 
       if(!data.force) {
         if(this._table._id !== data.tid) return;
@@ -325,16 +337,21 @@ class Game {
       this._setState('kiss-request [ ' + this._receivedKiss + '/2 ]');
 
       // отправка данных принятого поцелуя, другому игроку
-      if(data.active){
-        this.app.emitReceivedKiss(this._activePlayer, this._targetPlayer);
-      } else {
-        this.app.emitReceivedKiss(this._targetPlayer, this._activePlayer);
+      if(!current.emittedKiss){
+        current.emittedKiss = true;
+
+        if (data.active) {
+          this.app.emitReceivedKiss(this._activePlayer, this._targetPlayer);
+        } else {
+          this.app.emitReceivedKiss(this._targetPlayer, this._activePlayer);
+        }
       }
 
       ////////////////////////////////////////
 
       // если оба поцелуя получены
       if(this._activePlayer.kiss !== null && this._targetPlayer.kiss !== null){
+        this._kissesReseved = true;
         this._resultKiss = (this._activePlayer.kiss && this._targetPlayer.kiss);
 
         // шлем результаты на стол
@@ -369,7 +386,12 @@ class Game {
 
         // переходим к следующему действию, следующий раунд (без ошибок)
         this._timeouts.set('nextRound', setTimeout(
-          () => this.nextRound(),
+          () => {
+            this.nextRound();
+            this._kissesReseved = false;
+            this._activePlayer.emittedKiss = false;
+            this._activePlayer.emittedKiss = false;
+          },
           this._intervals.nextRound
         ));
       }
@@ -482,6 +504,7 @@ class Game {
       this._activePlayer.type = player.getType();
       this._activePlayer.gender = player.getGender();
       this._activePlayer.seat = player.getSeat();
+      this._activePlayer.rotateReceived = false;
       this._setState('active-selected');
 
       return true;

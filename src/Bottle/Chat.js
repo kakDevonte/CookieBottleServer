@@ -54,7 +54,7 @@ class Chat {
 
     switch(phrase) {
       case 1:
-        message = `К нам присоединяется ${user.getName()}, попривествуем!`;
+        message = `К нам присоединяется ${user.getName()}, поприветствуем!`;
         break;
 
       case 2:
@@ -196,7 +196,6 @@ class Chat {
     }
   }
 
-
   /**
    * Запрос в чат на отправку всех сообщений клиенту
    * @param {=string} personal = id пользователя
@@ -240,6 +239,8 @@ class Chat {
 
     return [message];
   }
+
+  // getMessages()
 
   /**
    * @param {string} from - id пользователя

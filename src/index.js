@@ -1,19 +1,22 @@
 const
-  router = require('express').Router(),
-  render = require('./../helpers/render'),
-  requests = require('./../../src/helpers/serverRequests'),
-  qs = require('querystring'),
-  md5 = require('md5');
-const jwt = require('jsonwebtoken');
+    router = require('express').Router(),
+    render = require('./../helpers/render'),
+    requests = require('./../../src/helpers/serverRequests'),
+    qs = require('querystring'),
+    md5 = require('md5');
 const db = require("../../src/helpers/dbRequests");
 const verifyLaunchParams = require('../../src/helpers/verifyLaunchParams');
 const { Token } = require("../../server/models/token");
+const jwt = require('jsonwebtoken');
+
 router.post('/', function (req, res){
   if(req.body.userExit){
     req.session.destroy();
   }
   res.redirect('/login/');
 });
+
+
 
 router.get('/', function (req, res, next) {
   let data;
@@ -40,27 +43,31 @@ router.get('/', function (req, res, next) {
   render(res,'index', data);
 });
 
+// router.post('/pay', function (req, res){
+//   const input = qs.parse(req.body);
+// });
+
 router.get('/token', async (req, res) => {
   let auth;
-  // console.log(req.headers.authorization);
+  console.log(req.headers.authorization);
   if(req.headers.authorization){
     auth = verifyLaunchParams(req.headers.authorization, process.env.SECRET_KEY);
     console.log(auth);
   }
-
-  // if(!auth) {
-  //   return res.status(401).send({ error: "not authorized :(" });
-  // }
+   if(!auth) {
+     return res.status(401).send({ error: "not authorized :(" });
+   }
 
   const header = qs.parse(req.headers.authorization);
   const jwtToken = jwt.sign({ id: header.vk_user_id }, process.env.SECRET_KEY);
   try {
-    let oldToken = await Token.findOne({ id: header.vk_user_id });
+    let oldToken = await Token.findOne({ id: 'random_' + header.vk_user_id });
     if(oldToken) {
       return res.json({message: "ok!", token: oldToken.token});
     }
 
-    const token = new Token({id: header.vk_user_id, token: jwtToken});
+    const token = new Token({id: 'random_'+ header.vk_user_id, token: jwtToken});
+    console.log(token);
     await token.save();
     return res.json({message: "ok!", token: jwtToken});
   } catch (e) {
@@ -75,54 +82,48 @@ router.post('/pay', async (request, response) => {
   let responseData;
   let user;
   const data = request.body;
-  console.log("request.body == ", request.body);
+  // Получение данных
 
-
-  user = await db.getUser(data.user_id);
+  user = await db.getUser('random_'+ data.user_id);
   console.log("USER 1 == ", user);
-        if (calcSignature(data) == data.sig) {
-          if(!user) {
-            responseData = { // РћС€РёР±РєР° РїРѕРґРїРёСЃРё
-              error: {
-                error_code: 20,
-                error_msg: 'РќРµСЃРѕРІРїР°РґРµРЅРёРµ РїРµСЂРµРґР°РЅРЅРѕР№ Рё РІС‹С‡РёСЃР»РµРЅРЅРѕР№ РїРѕРґРїРёСЃРё',
-                critical: true
-              }
-            }
-          } else {
-            // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј Р·Р°РїСЂРѕСЃ
-            console.log("data.notification_type: ", data.notification_type)
-            switch (data.notification_type) {
-              case "get_item":
-                responseData = await handleGetItem(data);
-                break;
-              case "get_item_test":
-                responseData = await handleGetItem(data);
-                break;
-              case "order_status_change":
-                responseData = await handleOrderStatusChange(data);
-                break;
-              case "order_status_change_test":
-                responseData = await handleOrderStatusChange(data);
-                break;
-            }
-          }
-        } else {
-          responseData = { // РћС€РёР±РєР° РїРѕРґРїРёСЃРё
-            error: {
-              error_code: 20,
-              error_msg: 'РќРµСЃРѕРІРїР°РґРµРЅРёРµ РїРµСЂРµРґР°РЅРЅРѕР№ Рё РІС‹С‡РёСЃР»РµРЅРЅРѕР№ РїРѕРґРїРёСЃРё',
-              critical: true
-            }
-          }
+  // Проверка подписи
+  // Код функции calcSignature() приведён ниже.
+  if (calcSignature(data) == data.sig) {
+    if(!user) {
+      responseData = { // Ошибка подписи
+        error: {
+          error_code: 20,
+          error_msg: 'Несовпадение переданной и вычисленной подписи',
+          critical: true
         }
+      }
+    } else {
+      // Обрабатываем запрос
+      switch (data.notification_type) {
+        case "get_item":
+        case "get_item_test":
+          responseData = await handleGetItem(data);
+          break;
+        case "order_status_change":
+        case "order_status_change_test":
+          responseData = await handleOrderStatusChange(data);
+          break;
+      }
+    }
+  } else {
+    responseData = { // Ошибка подписи
+      error: {
+        error_code: 20,
+        error_msg: 'Несовпадение переданной и вычисленной подписи',
+        critical: true
+      }
+    }
+  }
 
-        console.log("РћРўР’Р•Рў: ", responseData);
-        console.log("РћРўР’Р•Рў AWAIT: ", await responseData);
-        // РћС‚РїСЂР°РІР»СЏРµРј РѕС‚РІРµС‚
-        //s = JSON.stringify(responseData);
-        response.json(responseData);
-       // response.
+  // Отправляем ответ
+  //s = JSON.stringify(responseData);
+  response.json(responseData);
+  // response.
 })
 
 // Р’С‹С‡РёСЃР»РµРЅРёРµ РїРѕРґРїРёСЃРё
@@ -149,7 +150,6 @@ function calcSignature(params) {
 
   return calculatedSignature;
 }
-
 
 const saleItems = [
   {
@@ -202,9 +202,9 @@ const saleItems = [
     price: 5
   },
 ]
+
 // РћР±СЂР°Р±РѕС‚С‡РёРє СѓРІРµРґРѕРјР»РµРЅРёСЏ get_item
 async function handleGetItem(params) {
-
   let responseData
   // РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ С‚РѕРІР°СЂРµ
   let item = saleItems[Number(params.item)];
@@ -229,37 +229,49 @@ async function handleGetItem(params) {
       }};
   }
 
+  console.log(responseData)
   return responseData;
 }
 
 // РћР±СЂР°Р±РѕС‚С‡РёРє СѓРІРµРґРѕРјР»РµРЅРёСЏ order_status_change
 async function handleOrderStatusChange(params) {
+
   let responseData;
+
   switch(params.status) {
     case 'chargeable':
       const order = await db.getOrder(params.order_id);
-      const user = await db.getUser(order.user_id);
+      const user = await db.getUser('random_'+ order.user_id);
       if(!order) {
         return responseData = {
           error: {
             error_code: 100,
-            error_msg: 'РџРµСЂРµРґР°РЅРѕ РЅРµРїРѕРЅСЏС‚РЅРѕ С‡С‚Рѕ РІРјРµСЃС‚Рѕ chargeable.',
+            error_msg: 'Передано непонятно что вместо chargeable.',
             critical: true
           }};
       }
-      await db.userBuyCookie({id: order.user_id, count: user.cookies + order.count});
-      // РџСЂРµРґРѕСЃС‚Р°РІР»СЏРµРј С‚РѕРІР°СЂ РІ РїСЂРёР»РѕР¶РµРЅРёРё
+
+      console.log("user = ", user);
+      await db.userBuyCookie({id: 'random_'+ order.user_id, count: user.cookies + order.count});
+      // Предоставляем товар в приложении
+      // ...
       const bottle = global.Bottle;
-      bottle._connects.toUser(order.user_id, 'add-cookie', { count: order.count });
-      bottle._buyCookies({uid: order.user_id, count: order.count}); // РЎРѕС…СЂР°РЅСЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ Р·Р°РєР°Р·Рµ РІ РїСЂРёР»РѕР¶РµРЅРёРё
-      // Р¤РѕСЂРјРёСЂСѓРµРј РѕС‚РІРµС‚
-      let appOrder = order.id; // РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РєР°Р·Р° РІ РїСЂРёР»РѕР¶РµРЅРёРё
+      bottle._connects.toUser('random_'+ order.user_id, 'add-cookie', { count: order.count });
+      bottle._buyCookies({uid: 'random_'+ order.user_id, count: order.count});
+      // Сохраняем информацию о заказе в приложении
+      // ...
+
+      // Формируем ответ
+      let appOrder = order.id; // Идентификатор заказа в приложении
+
       responseData = {
         response: {
           order_id: params.order_id,
           app_order_id: appOrder
         }};
+
       break;
+
     case 'refund':
       // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РІРѕР·РІСЂР°С‚
       // ...
@@ -273,9 +285,19 @@ async function handleOrderStatusChange(params) {
         }};
   }
 
-  console.log("responseData: ", responseData);
-
   return responseData;
 }
 
+// РЎР»СѓР¶РµР±РЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РґРµРєРѕРґРёСЂРѕРІР°РЅРёСЏ СЃС‚СЂРѕРє
+// РёР· С„РѕСЂРјР°С‚Р° PHP URL-encoded
+function PHPUrlDecode(str){
+  return decodeURIComponent(
+      str.replace(/%21/g, '!')
+          .replace(/%27/g, '\'')
+          .replace(/%28/g, '(')
+          .replace(/%29/g, ')')
+          .replace(/%2A/g, '*')
+          .replace(/%7E/g, '~')
+          .replace(/\+/g, '%20'));
+}
 module.exports = router;

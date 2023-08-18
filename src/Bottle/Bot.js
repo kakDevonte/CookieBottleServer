@@ -9,7 +9,7 @@ class Bot extends User {
       {
         bdate: info.bdate,
         first_name: info.first_name,
-        id: info.id,
+        id: info.tempalate,//info.id,
         last_name: info.last_name,
         photo_100: info.photo,
         photo_200: info.photo,
@@ -101,7 +101,7 @@ class Bot extends User {
     //console.log('Робот', this.getName(), this.getId(), 'крутит рулетку');
 
     this._timeouts.set('rotate', setTimeout(
-      () => { this.app.startRotateCookie(this.getTable()) },
+      () => { this.app.startRotateCookie({ tid: this._table, uid: this._id }) },
       common.randomNumber(50, 250) * 10
     ));
   }

@@ -22,7 +22,15 @@ const player = new Schema({
   },
   cookies: {
     type: Number,
-    default: 0
+    default: 100
+  },
+  adult: {
+    type: Boolean,
+    default: false
+  },
+  isDelete: {
+    type: Boolean,
+    default: false
   },
   enters: {
     count: {

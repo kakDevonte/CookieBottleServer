@@ -66,6 +66,10 @@ class TablesList {
     return table;
   }
 
+  getTable() {
+    return this._list;
+  }
+
   _generateTableId() {
     let tid = common.rid();
 
@@ -104,7 +108,15 @@ class TablesList {
     if(table) return table.table;
   }
 
-  /**
+  isUserAtTables(user) {
+    for (const _table of this._incomplete.values()) {
+      console.log(_table.isUserAtTable(user.getId()));
+      if (_table.isUserAtTable(user.getId())) return true;
+    }
+    return false;
+  }
+
+    /**
    * Подбирает подходящий стол игроку или создает новый
    * @param {User|Bot} user
    * @returns {Table}
@@ -118,12 +130,14 @@ class TablesList {
     for(const _table of this._incomplete.values()) {
       if(_table.isLock()) continue;
       if(isExcluded(_table, exclude)) continue;
+      if(_table.isUserAtTable(user.getId())) continue;
 
       if(_table.isGroupIncomplete(gender)) {
         table = _table;
         break;
       }
     }
+    if(table)
 
     if(table) return table;
     return this.createTable();

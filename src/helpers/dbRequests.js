@@ -1,5 +1,9 @@
 const {Player, Info} = require('../../server/models/player');
+const { Report } = require('../../server/models/report');
 const Rating = require('../../server/models/rating');
+const {Order} = require("../../server/models/order");
+const { use } = require("express/lib/router");
+const { Token } = require("../../server/models/token");
 const getWeek = require('../../server/helpers/date').getWeek;
 
 const models = {
@@ -108,6 +112,7 @@ class dbRequests {
       //'vk180312929': true
     };
 
+    // Player.createdAt();
     const result = await Player.findOneAndUpdate(
       {uid: info.id},
       {cookies: info.count})
@@ -117,11 +122,136 @@ class dbRequests {
   }
 
   /**
+   * Получение юзера
+   * @param uid
+   * @return {Promise<void>}
+   */
+  static async getUser(uid) {
+    try {
+      const player = await Player.findOne({uid: uid})
+      const info = await Info.findOne({uid: uid})
+
+      if (!player) global.log.error('Не смог получить пользователя: id ' + info.id, info);
+
+      const result = {
+        uid: player.uid,
+        fullName: info.fullName,
+        photo: info.photo,
+        kissCounter:  player.kisses,
+        giveGiftCount: player.gifts.receive,
+        cookies: player.cookies,
+      };
+      return result;
+    }
+     catch (e) {
+      console.log('user Enter', e);
+      return null;
+    }
+  }
+
+  /**
+   * Записывает что пользователю больше 18
+   * @param info
+   * @return {Promise<void>}
+   */
+  static async userSetAdult(info) {
+    const cheaters = {
+      //'vk180312929': true
+    };
+
+    const result = await Player.findOneAndUpdate(
+      {uid: info.id},
+      {adult: true, isDelete: false})
+
+    if(!result) global.log.error('Не смог обновить пользователя: id ' + info.id, info);
+    if(cheaters[info.id]) return;
+
+    return result;
+  }
+
+  /**
+   * Удаление пользователя
+   * @param info
+   * @return {Promise<void>}
+   */
+  static async deleteUser(info) {
+    const cheaters = {
+      //'vk180312929': true
+    };
+
+    const player = await Player.findOneAndUpdate(
+      {uid: info.id},{isDelete: true, kisses: 0, gifts: {send: 0, receive: 0}, enters: {count: 0}});
+
+    // const playerInfo = await Info.deleteOne(
+    //   {uid: info.id})
+
+    if(!player) global.log.error('Не смог удалить пользователя: id ' + info.id, info);
+    if(cheaters[info.id]) return;
+  }
+
+  /**
+   * Добавление репорта
+   * @param info
+   * @return {Promise<void>}
+   */
+  static async addReport(info) {
+      const { name, id, text, date, cause } = info;
+      const report = new Report({
+        name: name,
+        id: id,
+        text: text,
+        date: date,
+        cause: cause
+      });
+      await report.save();
+    if(!report) global.log.error('Не смог добавить репорт от пользователя пользователя');
+    //if(cheaters[info.id]) return;
+  }
+
+  /**
+   * Добавление заказа
+   * @param info
+   * @return {Promise<void>}
+   */
+  static async addOrder(info) {
+      const { user_id, payment_id, price, count } = info;
+      const order = new Order({
+        id: user_id + payment_id,
+        user_id: user_id,
+        payment_id: payment_id,
+        price: price,
+        count: count,
+      });
+      await order.save();
+    if(!order) global.log.error('Не смог добавить заказ');
+    //if(cheaters[info.id]) return;
+  }
+
+  /**
+   * Получение заказа
+   * @param payment_id
+   * @return {Promise<void>}
+   */
+  static async getOrder(payment_id) {
+    try {
+      const order = await Order.findOne({payment_id: payment_id})
+      if (!order) global.log.error('Не смог получить заказ: id ' + payment_id);
+      return order;
+    } catch (e) {
+      console.log('user Enter', e);
+      return null;
+    }
+  }
+
+  /**
    * Записывает поцелуи
    * @param info
    * @return {Promise<void>}
    */
   static async userExit(info) {
+    // if(info.id === 'vk224001505')
+    //   console.log(info)
+
     const cheaters = {
       //'vk180312929': true
     };
@@ -153,6 +283,23 @@ class dbRequests {
     results.day = await Rating.DayRating.deleteMany( {day: {$ne: now.getDate()} } );
     results.week = await Rating.WeekRating.deleteMany( {week: {$ne: getWeek()} } );
     results.month = await Rating.MonthRating.deleteMany( {month: {$ne: now.getMonth() + 1} } );
+
+    global.log.debug('Чистка рейтинга', results);
+    //setTimeout(dbRequests.resetRatings, 43200000);
+    return true;
+  }
+
+  /**
+   * Очищает все записи в рейтинге, по удаленному пользователю
+   * @return {Promise<void|boolean>}
+   */
+  static async resetRatingsById(id) {
+    console.log(id);
+    const results = {};
+    results.day = await Rating.DayRating.deleteMany( {player: id} );
+    results.week = await Rating.WeekRating.deleteMany( {player: id} );
+    results.month = await Rating.MonthRating.deleteMany( {player: id} );
+    console.log(results);
 
     global.log.debug('Чистка рейтинга', results);
     //setTimeout(dbRequests.resetRatings, 43200000);
@@ -214,9 +361,10 @@ class dbRequests {
         }
       }
 
-      if(isNaN(result.my.position)) {
-        rating = await Model.findOne(search, {_id: 0, __v: 0}).lean();
 
+      if(isNaN(result.my.position)) {
+        search.player = player;
+        rating = await Model.findOne(search, {_id: 0, __v: 0}).lean();
         if(rating) {
           result.my.kisses = rating.kisses;
           result.my.gifts = rating.gifts;

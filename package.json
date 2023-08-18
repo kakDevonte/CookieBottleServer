@@ -9,17 +9,20 @@
     "connect-mongo": "^3.2.0",
     "cookie-parser": "^1.4.4",
     "cron": "^1.8.2",
+    "crypto": "^1.0.1",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "express-handlebars": "^3.1.0",
     "express-session": "^1.17.0",
     "handlebars": "4.5.0",
+    "jsonwebtoken": "^9.0.0",
+    "md5": "^2.3.0",
     "mongodb": "3.5.3",
     "mongoose": "5.7.0",
     "mongoose-auto-increment": "^5.0.1",
     "petrovich": "^0.2.1",
     "slimbot": "^5.0.0",
-    "socket.io": "^2.3.0"
+    "socket.io": "^2.3.1"
   },
   "devDependencies": {
     "chokidar": "^3.3.1",

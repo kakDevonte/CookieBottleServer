@@ -49,7 +49,7 @@ class UsersList {
         timezone: number
      }} - данные из вКонтакте
    */
-  addUser(sid, guest) {
+  addUser(sid, guest, token) {
     let exist, user;
 
     try {
@@ -72,6 +72,7 @@ class UsersList {
       }
 
       user.addSocket(sid);
+      user.setToken(token);
 
       return {exist, user};
     }catch(e) {
@@ -97,6 +98,7 @@ class UsersList {
     this._users.set(uid, {
       user: bot
     });
+
     this._countRobots++;
     return bot;
   }
